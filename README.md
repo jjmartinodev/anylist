@@ -10,14 +10,12 @@
  ```
  fn main() {
      use anylist::AnyList;
-     unsafe {
-         let mut list = AnyList::new::<u32>();
- 
-         list.push::<u32>(1);
-         list.push::<u32>(2);
- 
-         assert_eq!(list.index::<u32>(0), 1)
-         assert_eq!(list.index::<u32>(1), 2)
-     }
+     let mut list = AnyList::new::<u32>();
+
+     list.push::<u32>(1);
+     list.push::<u32>(2);
+
+     assert_eq!(list.index::<u32>(0), 1)
+     assert_eq!(list.index::<u32>(1), 2)
  }
  ```
