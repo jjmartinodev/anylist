@@ -1,5 +1,4 @@
-use std::{alloc::{Layout, alloc_zeroed, dealloc}, any::{TypeId, Any}, mem::{size_of, swap}, ops::Index};
-
+use std::{any::{TypeId, Any}, mem::{size_of, swap}};
 
 pub struct AnyList {
     data:Box<[u8]>,
