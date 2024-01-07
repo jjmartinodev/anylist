@@ -2,12 +2,7 @@
  AnyList works as a Vec<T> but without generics in it's type.
  
  the only issue this creates is having to use the correct type
- in every function because all of them(except for pop and drop)
- need a generic.
- 
- this also used raw allocation, and the data references you can
- get from functions can get duplicated thus breaking rust's memory
- safety rules.
+ in every function because all of them need a generic.
  
  capacity increments using a fibonacci sequence.
  

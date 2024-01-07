@@ -11,8 +11,3 @@ description = "a list type for any type"
 repository = "https://github.com/jjmartinodev/anylist"
 keywords = ["any","list"]
 categories = ["data-structures"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-bytemuck = "1.14.0"
