@@ -79,8 +79,8 @@ impl AnyList {
             a.clone_from_slice(&b);
             b.clone_from_slice(&temp);
         }
-        
-        self.len += 1;
+
+        self.len -= 1;
     }
     pub fn insert<T: Any>(&mut self, index: usize, item: T) {
         assert_eq!(self.typeid, TypeId::of::<T>());
