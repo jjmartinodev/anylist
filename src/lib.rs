@@ -1,3 +1,5 @@
+#![feature(get_many_mut)]
+
 use std::{any::{TypeId, Any}, mem::{size_of, swap}};
 
 pub struct AnyList {
@@ -5,7 +7,8 @@ pub struct AnyList {
     len: usize,
     typeid: TypeId,
     capacity: usize,
-    past_capacity: usize
+    past_capacity: usize,
+    item_size: usize,
 }
 
 impl AnyList {
@@ -16,7 +19,8 @@ impl AnyList {
             len: 0,
             typeid,
             capacity: 1,
-            past_capacity: 1
+            past_capacity: 1,
+            item_size: std::mem::size_of::<T>()
         }
     }
     pub fn expand<T: Any>(&mut self, size: usize) {
@@ -63,16 +67,17 @@ impl AnyList {
         assert!(self.len > 0);
         self.len -= 1;
     }
-    pub fn remove<T: Any>(&mut self, index: usize) {
-        assert_eq!(self.typeid, TypeId::of::<T>());
+    pub fn remove(&mut self, index: usize) {
         assert!(self.len > 0);
 
-        let data = unsafe {
-            std::mem::transmute::<&mut Box<[u8]>, &mut Box<[T]>>(&mut self.data)
-        };
+        let mut chunks: Vec<&mut [u8]> = self.data.chunks_mut(self.item_size).collect::<Vec<_>>();
 
+        let mut temp: Vec<u8> = vec![0u8; self.item_size];
         for i in index..self.len {
-            swap(&mut data[i],&mut self.index_mut::<T>(i+1));
+            temp.clone_from_slice(chunks[i]);
+            let [a, b] = chunks.get_many_mut([i,i+1]).unwrap();
+            a.clone_from_slice(&b);
+            b.clone_from_slice(&temp);
         }
     }
     pub fn insert<T: Any>(&mut self, index: usize, item: T) {
@@ -126,9 +131,10 @@ mod tests {
     fn general() {
         let mut list = AnyList::new::<u32>();
         list.push::<u32>(1);
+        list.push::<u32>(2);
         list.push::<u32>(3);
         list.push::<u32>(4);
-        list.insert::<u32>(1, 2);
+        list.remove(2);
         for i in 0..list.len() {
             println!("{}",list.index::<u32>(i));
         }
