@@ -130,13 +130,19 @@ mod tests {
     #[test]
     fn general() {
         let mut list = AnyList::new::<u32>();
+
         list.push::<u32>(1);
         list.push::<u32>(2);
         list.push::<u32>(3);
-        list.push::<u32>(4);
-        list.remove(2);
-        for i in 0..list.len() {
-            println!("{}",list.index::<u32>(i));
-        }
+
+        assert_eq!(*list.index::<u32>(0), 1);
+        assert_eq!(*list.index::<u32>(1), 2);
+        assert_eq!(*list.index::<u32>(2), 3);
+
+        list.remove(1);
+
+        assert_eq!(*list.index::<u32>(0), 1);
+        assert_eq!(*list.index::<u32>(1), 3);
+        assert_eq!(*list.index::<u32>(2), 0);
     }
 }
