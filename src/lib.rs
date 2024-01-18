@@ -1,105 +1,117 @@
 #![feature(get_many_mut)]
 
-use std::{any::{TypeId, Any}, mem::{size_of, swap}};
+use std::{any::Any, ptr::copy, slice::{from_raw_parts, from_raw_parts_mut}};
+
+use std::alloc;
+use std::mem;
 
 pub struct AnyList {
-    data:Box<[u8]>,
+    data:*mut u8,
     len: usize,
-    typeid: TypeId,
     capacity: usize,
     past_capacity: usize,
     item_size: usize,
 }
 
 impl AnyList {
+    fn alloc<T: Any>(size: usize) -> *mut u8 {
+        let layout = alloc::Layout::array::<T>(size).unwrap();
+        unsafe { alloc::alloc_zeroed(layout) }
+    }
+    fn dealloc<T: Any>(size: usize, data: *mut u8) {
+        let layout = alloc::Layout::array::<T>(size).unwrap();
+        unsafe { alloc::dealloc(data, layout) }
+    }
     pub fn new<T: Any>() -> AnyList {
-        let typeid = TypeId::of::<T>();
         AnyList {
-            data: vec![0u8;size_of::<T>()].into_boxed_slice(),
+            data: Self::alloc::<T>(1),
             len: 0,
-            typeid,
             capacity: 1,
             past_capacity: 1,
-            item_size: std::mem::size_of::<T>()
+            item_size: mem::size_of::<T>()
         }
     }
-    pub fn expand<T: Any>(&mut self, size: usize) {
-        assert_eq!(self.typeid, TypeId::of::<T>());
-
-        if self.capacity >= size {
-            return;
+    pub fn reserve<T: Any>(&mut self, capacity: usize) {
+        if self.capacity > capacity {
+            return
         }
+        
+        let new_data = Self::alloc::<T>(capacity);
 
-        let mut new_data = vec![0u8;size_of::<T>() * size].into_boxed_slice();
-
-        for i in 0..self.len * size_of::<T>() {
-            new_data[i] = self.data[i];
-        }
-
+        unsafe { copy(self.data, new_data, self.capacity * mem::size_of::<T>()); }
+        Self::dealloc::<T>(self.capacity, self.data);
+        
+        self.capacity = capacity;
         self.data = new_data;
-
-        self.capacity = size;
     }
     pub fn index<T: Any>(&self, index: usize) -> &T {
-        assert_eq!(self.typeid, TypeId::of::<T>());
-        unsafe {
-            &std::mem::transmute::<&Box<[u8]>, &Box<[T]>>(&self.data)[index]
-        }
+        assert!(index < self.len);
+        unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).as_ref().unwrap() }
     }
     pub fn index_mut<T: Any>(&mut self, index: usize) -> &mut T {
-        assert_eq!(self.typeid, TypeId::of::<T>());
-        unsafe {
-            &mut std::mem::transmute::<&mut Box<[u8]>, &mut Box<[T]>>(&mut self.data)[index]
-        }
+        assert!(index < self.len);
+        unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).as_mut().unwrap() }
+    }
+    pub fn index_unchecked<T: Any>(&self, index: usize) -> &T {
+        unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).as_ref().unwrap() }
+    }
+    pub fn index_mut_unchecked<T: Any>(&mut self, index: usize) -> &mut T {
+        unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).as_mut().unwrap() }
+    }
+    pub fn set<T: Any>(&mut self, index: usize, value: T) {
+        unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).write(value) }
+    }
+    pub fn get<T: Any>(&mut self, index: usize) -> T {
+        unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).read() }
+    }
+    fn no_mut_index_mut_unchecked<T: Any>(&self, index: usize) -> &mut T {
+        unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).as_mut().unwrap() }
     }
     pub fn push<T: Any>(&mut self, item: T) {
-        assert_eq!(self.typeid, TypeId::of::<T>());
-        if self.len + 1 >= self.capacity {
+        if self.len + 1 > self.capacity {
             let past_capacity = self.capacity;
-            self.expand::<T>(self.capacity + self.past_capacity);
+            let new_capacity = self.capacity + self.past_capacity;
+            self.reserve::<T>(new_capacity);
             self.past_capacity = past_capacity;
         }
 
+        self.set::<T>(self.len, item);
         self.len += 1;
-        *self.index_mut::<T>(self.len - 1) = item;
     }
     pub fn pop(&mut self) {
-        assert!(self.len > 0);
         self.len -= 1;
     }
     pub fn remove(&mut self, index: usize) {
         assert!(self.len > 0);
-
-        let mut chunks: Vec<&mut [u8]> = self.data.chunks_mut(self.item_size).collect::<Vec<_>>();
-
-        let mut temp: Vec<u8> = vec![0u8; self.item_size];
+        
+        unsafe {
+            from_raw_parts_mut(self.data.add(index*self.item_size), self.item_size).fill(0)
+        };
+        
         for i in index..self.len {
-            temp.clone_from_slice(chunks[i]);
-            let [a, b] = chunks.get_many_mut([i,i+1]).unwrap();
-            a.clone_from_slice(&b);
-            b.clone_from_slice(&temp);
+            unsafe {
+                from_raw_parts_mut(self.data.add(i*self.item_size), self.item_size).clone_from_slice(
+                    from_raw_parts(self.data.add((i + 1)*self.item_size), self.item_size)
+                );
+            };
         }
 
         self.len -= 1;
     }
     pub fn insert<T: Any>(&mut self, index: usize, item: T) {
-        assert_eq!(self.typeid, TypeId::of::<T>());
-        if self.len + 1 >= self.capacity {
+        if self.len + 1 > self.capacity {
             let past_capacity = self.capacity;
-            self.expand::<T>(self.capacity + self.past_capacity);
+            let new_capacity = self.capacity + self.past_capacity;
+            self.reserve::<T>(new_capacity);
             self.past_capacity = past_capacity;
         }
 
-        let data = unsafe {
-            std::mem::transmute::<&mut Box<[u8]>, &mut Box<[T]>>(&mut self.data)
-        };
-
-        for i in (index + 1..=self.len).rev() {
-            swap(&mut data[i],&mut self.index_mut::<T>(i-1));
-        }
-
-        data[index] = item;
         self.len += 1;
+        for i in (index..self.len - 1).rev() {
+            mem::swap(self.no_mut_index_mut_unchecked::<T>(i), self.no_mut_index_mut_unchecked(i+1))
+        }
+        
+        *self.index_mut(index) = item;
     }
     pub const fn len(&self) -> usize {
         self.len
@@ -117,16 +129,47 @@ mod tests {
 
     #[test]
     fn stress() {
-        let mut list = AnyList::new::<u32>();
         let start = Instant::now();
+        let mut list = AnyList::new::<usize>();
         for i in 0..10000 {
-            list.insert::<u32>(0, i);
+            list.push::<usize>(i);
         }
-        for _ in 0..10000 {
-            list.pop();
+        for i in 0..10000 {
+            assert!(*list.index::<usize>(i) == i); 
         }
-        let end = Instant::now();
-        println!("{:?}",(end - start).as_millis());
+        let end: Instant = Instant::now();
+
+        println!("{:?}",(end - start).as_nanos());
+    }
+
+    #[test]
+    fn stress_unoptimal() {
+        let start = Instant::now();
+        let mut list: Vec<Box<usize>> = vec![];
+        for i in 0..10000 {
+            list.push(Box::new(i));
+        }
+        for i in 0..10000 {
+            assert!(*list[i] == i); 
+        }
+        let end: Instant = Instant::now();
+
+        println!("{:?}",(end - start).as_nanos());
+    }
+
+    #[test]
+    fn stress_ref() {
+        let start = Instant::now();
+        let mut list: Vec<usize> = vec![];
+        for i in 0..10000 {
+            list.push(i);
+        }
+        for i in 0..10000 {
+            assert!(list[i] == i); 
+        }
+        let end: Instant = Instant::now();
+
+        println!("{:?}",(end - start).as_nanos());
     }
 
     #[test]
@@ -145,6 +188,11 @@ mod tests {
 
         assert_eq!(*list.index::<u32>(0), 1);
         assert_eq!(*list.index::<u32>(1), 3);
-        assert_eq!(*list.index::<u32>(2), 0);
+
+        list.insert(1, 2);
+
+        assert_eq!(*list.index::<u32>(0), 1);
+        assert_eq!(*list.index::<u32>(1), 2);
+        assert_eq!(*list.index::<u32>(2), 3);
     }
 }
