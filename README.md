@@ -23,15 +23,18 @@
     assert_eq!(*list.index::<u32>(1), 2);
     assert_eq!(*list.index::<u32>(2), 3);
 
-    list.remove(1);
+    list.remove(0);
 
-    assert_eq!(*list.index::<u32>(0), 1);
+    assert_eq!(*list.index::<u32>(0), 2);
     assert_eq!(*list.index::<u32>(1), 3);
 
-    list.insert(1, 2);
+    list.pop();
 
-    assert_eq!(*list.index::<u32>(0), 1);
     assert_eq!(*list.index::<u32>(1), 2);
-    assert_eq!(*list.index::<u32>(2), 3);
+    
+    list.insert::<u32>(1, 1)
+
+    assert_eq!(*list.index::<u32>(0), 2);
+    assert_eq!(*list.index::<u32>(1), 1);
  }
  ```

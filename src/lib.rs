@@ -29,9 +29,6 @@ impl AnyList {
             item_size: mem::size_of::<T>()
         }
     }
-    unsafe fn ix(&mut self, index: usize) -> usize {
-        self.item_size * index
-    }
     pub fn reserve<T: Any>(&mut self, capacity: usize) {
         if self.capacity > capacity {
             return
@@ -71,20 +68,21 @@ impl AnyList {
         self.len += 1;
     }
     pub fn pop(&mut self) {
+        unsafe { self.data.add((self.len - 1) * self.item_size).write_bytes(0, self.item_size) }
         self.len -= 1;
     }
     pub fn remove(&mut self, index: usize) {
         assert!(self.len > 0);
+        
+        let bytes_moved = (self.len - index) * self.item_size;
 
         unsafe {
-            let bytes_moved = self.len - index - 1;
             ptr::copy(
-                self.data.add(self.ix(index + 1)),
-                self.data.add(self.ix(index)),
+                self.data.add((index + 1) * self.item_size),
+                self.data.add(index * self.item_size),
                 bytes_moved
             );
         }
-
         self.len -= 1;
     }
     pub fn insert<T: Any>(&mut self, index: usize, item: T) {
@@ -96,14 +94,15 @@ impl AnyList {
         }
 
         self.len += 1;
-        let bytes_moved = self.len - index;
+        let casted = self.data.cast::<T>();
+        let bytes_moved = self.len - index - 1;
         unsafe {
             ptr::copy(
-                self.data.add(index),
-                self.data.add(index + 1),
+                casted.add(index),
+                casted.add(index + 1),
                 bytes_moved
             );
-            self.data.cast::<T>().add(index).write(item);
+            casted.add(index).write(item);
         }
         
     }
@@ -116,214 +115,4 @@ impl AnyList {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::time::Instant;
-
-    use crate::AnyList;
-
-    fn insert_stress_box() {
-        let start = Instant::now();
-        let mut list: Vec<Box<usize>> = vec![];
-        for i in 0..10000 {
-            list.insert(0, Box::new(i));
-        }
-        let end: Instant = Instant::now();
-
-        println!("insert box implementation: {:?}",(end - start).as_nanos());
-    }
-    
-    fn insert_stress_anylist() {
-        let start = Instant::now();
-        let mut list = AnyList::new::<usize>();
-        for i in 0..10000 {
-            list.insert::<usize>(0, i);
-        }
-        let end: Instant = Instant::now();
-
-        println!("insert any implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn insert_stress_vec() {
-        let start = Instant::now();
-        let mut list: Vec<usize> = vec![];
-        for i in 0..10000 {
-            list.insert(0, i);
-        }
-        let end: Instant = Instant::now();
-
-        println!("insert vec implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn insert_stress_comparison() {
-        insert_stress_vec();
-        insert_stress_anylist();
-        insert_stress_box();
-    }
-
-    fn remove_stress_anylist() {
-        let start = Instant::now();
-        let mut list = AnyList::new::<usize>();
-        for _ in 0..10000 {
-            list.push(0);
-        }
-        for _ in 0..10000 {
-            list.remove(0);
-        }
-        let end: Instant = Instant::now();
-
-        println!("remove any implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn remove_stress_box() {
-        let start = Instant::now();
-        let mut list: Vec<Box<usize>> = vec![];
-        for _ in 0..10000 {
-            list.push(Box::new(0));
-        }
-        for _ in 0..10000 {
-            list.remove(0);
-        }
-        let end: Instant = Instant::now();
-
-        println!("remove box implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn remove_stress_vec() {
-        let start = Instant::now();
-        let mut list: Vec<usize> = vec![];
-        for _ in 0..10000 {
-            list.push(0);
-        }
-        for _ in 0..10000 {
-            list.remove(0);
-        }
-        let end: Instant = Instant::now();
-
-        println!("remove vec implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn remove_stress_comparison() {
-        remove_stress_anylist();
-        remove_stress_box();
-        remove_stress_vec();
-    }
-
-    fn push_stress_anylist() {
-        let start = Instant::now();
-        let mut list = AnyList::new::<usize>();
-        for i in 0..1000000 {
-            list.push::<usize>(i);
-        }
-        let end: Instant = Instant::now();
-
-        println!("push any implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn push_stress_box() {
-        let start = Instant::now();
-        let mut list: Vec<Box<usize>> = vec![];
-        for i in 0..1000000 {
-            list.push(Box::new(i))
-        }
-        let end: Instant = Instant::now();
-
-        println!("push box implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn push_stress_vec() {
-        let start = Instant::now();
-        let mut list: Vec<usize> = vec![];
-        for i in 0..1000000 {
-            list.push(i)
-        }
-        let end: Instant = Instant::now();
-
-        println!("push vec implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn push_stress_comparison() {
-        push_stress_anylist();
-        push_stress_box();
-        push_stress_vec();
-    }
-
-    fn pop_stress_anylist() {
-        let start = Instant::now();
-        let mut list = AnyList::new::<usize>();
-        for i in 0..1000000 {
-            list.push::<usize>(i);
-        }
-        for _ in 0..1000000 {
-            list.pop();
-        }
-        let end: Instant = Instant::now();
-
-        println!("push any implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn pop_stress_box() {
-        let start = Instant::now();
-        let mut list: Vec<Box<usize>> = vec![];
-        for i in 0..1000000 {
-            list.push(Box::new(i))
-        }
-        for _ in 0..1000000 {
-            list.pop();
-        }
-        let end: Instant = Instant::now();
-
-        println!("push box implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn pop_stress_vec() {
-        let start = Instant::now();
-        let mut list: Vec<usize> = vec![];
-        for i in 0..1000000 {
-            list.push(i)
-        }
-        for _ in 0..1000000 {
-            list.pop();
-        }
-        let end: Instant = Instant::now();
-
-        println!("push vec implementation: {:?}",(end - start).as_nanos());
-    }
-
-    fn pop_stress_comparison() {
-        pop_stress_anylist();
-        pop_stress_box();
-        pop_stress_vec();
-    }
-
-    #[test]
-    fn stress_comparisons() {
-        push_stress_comparison();
-        pop_stress_comparison();
-        insert_stress_comparison();
-        remove_stress_comparison();
-    }
-
-    #[test]
-    fn general() {
-        let mut list = AnyList::new::<u32>();
-
-        list.push::<u32>(1);
-        list.push::<u32>(2);
-        list.push::<u32>(3);
-
-        assert_eq!(*list.index::<u32>(0), 1);
-        assert_eq!(*list.index::<u32>(1), 2);
-        assert_eq!(*list.index::<u32>(2), 3);
-
-        list.remove(1);
-
-        assert_eq!(*list.index::<u32>(0), 1);
-        assert_eq!(*list.index::<u32>(1), 3);
-
-        list.insert(1, 2);
-
-        assert_eq!(*list.index::<u32>(0), 1);
-        assert_eq!(*list.index::<u32>(1), 2);
-        assert_eq!(*list.index::<u32>(2), 3);
-    }
-}
+mod tests;
