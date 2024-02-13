@@ -8,8 +8,7 @@
  in every function because all of them need a generic, exept for
  the remove and pop implementations.
 
- type checking it's not implemented, this makes the library very dangerous,
- whenever a wrong type is used unkown behaviour is expected.
+ if a wrong type it's used, then the API will panic.
 
  the only purpose of this is to out perform an Vec<Box<Any>>, which
  generates fragmentation and indirection, with an extra pointer.
