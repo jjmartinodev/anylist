@@ -1,4 +1,4 @@
-use std::{any::Any, ptr::{self, copy}};
+use std::{any::{Any, TypeId}, ptr::{self, copy}};
 
 use std::alloc;
 use std::mem;
@@ -9,6 +9,7 @@ pub struct AnyList {
     capacity: usize,
     past_capacity: usize,
     item_size: usize,
+    type_id: TypeId
 }
 
 impl AnyList {
@@ -26,10 +27,18 @@ impl AnyList {
             len: 0,
             capacity: 1,
             past_capacity: 1,
-            item_size: mem::size_of::<T>()
+            item_size: mem::size_of::<T>(),
+            type_id: TypeId::of::<T>()
+        }
+    }
+    pub fn panic_if_wrong_type<T: Any>(&self) {
+        if self.type_id != TypeId::of::<T>() {
+            panic!("tried to use anylist with an incorrect type\n expected: {:?}, got: {:?}",
+            self.type_id, TypeId::of::<T>());
         }
     }
     pub fn reserve<T: Any>(&mut self, capacity: usize) {
+        self.panic_if_wrong_type::<T>();
         if self.capacity > capacity {
             return
         }
@@ -43,10 +52,12 @@ impl AnyList {
         self.data = new_data;
     }
     pub fn index<T: Any>(&self, index: usize) -> &T {
+        self.panic_if_wrong_type::<T>();
         assert!(index < self.len);
         unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).as_ref().unwrap() }
     }
     pub fn index_mut<T: Any>(&mut self, index: usize) -> &mut T {
+        self.panic_if_wrong_type::<T>();
         assert!(index < self.len);
         unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).as_mut().unwrap() }
     }
@@ -57,6 +68,7 @@ impl AnyList {
         unsafe { mem::transmute::<*mut u8, *mut T>(self.data).add(index).as_mut().unwrap() }
     }
     pub fn push<T: Any>(&mut self, item: T) {
+        self.panic_if_wrong_type::<T>();
         if self.len + 1 > self.capacity {
             let past_capacity = self.capacity;
             let new_capacity = self.capacity + self.past_capacity;
@@ -86,6 +98,7 @@ impl AnyList {
         self.len -= 1;
     }
     pub fn insert<T: Any>(&mut self, index: usize, item: T) {
+        self.panic_if_wrong_type::<T>();
         if self.len + 1 > self.capacity {
             let past_capacity = self.capacity;
             let new_capacity = self.capacity + self.past_capacity;

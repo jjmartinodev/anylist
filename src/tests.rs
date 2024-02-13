@@ -266,5 +266,4 @@ fn general() {
 
     assert_eq!(*list.index::<u32>(0), 1);
     assert_eq!(*list.index::<u32>(1), 2);
-
 }
