@@ -1,4 +1,4 @@
-use std::{any::{Any, TypeId}, ptr::{self, copy}};
+use std::{alloc::Layout, any::{Any, TypeId}, ptr::{self, copy}};
 
 use std::alloc;
 use std::mem;
@@ -6,6 +6,7 @@ use std::mem;
 pub struct AnyList {
     data:*mut u8,
     len: usize,
+    current_layout: Layout,
     capacity: usize,
     past_capacity: usize,
     item_size: usize,
@@ -27,6 +28,7 @@ impl AnyList {
             len: 0,
             capacity: 1,
             past_capacity: 1,
+            current_layout: Layout::array::<T>(1).unwrap(),
             item_size: mem::size_of::<T>(),
             type_id: TypeId::of::<T>()
         }
@@ -50,6 +52,7 @@ impl AnyList {
         
         self.capacity = capacity;
         self.data = new_data;
+        self.current_layout = Layout::array::<T>(self.capacity).unwrap();
     }
     pub fn index<T: Any>(&self, index: usize) -> &T {
         self.panic_if_wrong_type::<T>();
@@ -124,6 +127,12 @@ impl AnyList {
     }
     pub const fn capacity(&self) -> usize {
         self.capacity
+    }
+}
+
+impl Drop for AnyList {
+    fn drop(&mut self) {
+        unsafe { alloc::dealloc(self.data, self.current_layout); }
     }
 }
 
