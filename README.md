@@ -6,12 +6,14 @@
 
  the only issue this creates is having to use the correct type
  in every function because all of them need a generic, exept for
- the remove and pop implementations.
+ the implementations that don't need it on their arguments(ej: remove, pop).
 
  if a wrong type it's used, then the API will panic.
 
  the only purpose of this is to out perform an Vec<Box<Any>>, which
- generates fragmentation and indirection, with an extra pointer.
+ generates fragmentation and indirection, with an extra pointer. and
+ to be able to use implementations like pop and remov,e without needing
+ generics in their functions.
  
  capacity increments using a fibonacci sequence.
  
