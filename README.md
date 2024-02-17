@@ -12,40 +12,36 @@
 
  the only purpose of this is to out perform an Vec<Box<Any>>, which
  generates fragmentation and indirection, with an extra pointer. and
- to be able to use implementations like pop and remov,e without needing
+ to be able to use implementations like pop and remove, without needing
  generics in their functions.
- 
- capacity increments using a fibonacci sequence.
+
+ implementation made by SkiFire13 in reddit.
  
  # Example:
  ```
  fn main() {
-   let mut list = AnyList::new::<u32>();
+    let mut list = AnyList::new::<u32>();
 
-   list.push::<u32>(1);
-   list.insert::<u32>(1, 2);
-   list.push::<u32>(3);
+    list.push::<u32>(1);
+    list.insert::<u32>(1, 2);
+    list.push::<u32>(3);
 
-   assert_eq!(*list.index::<u32>(0), 1);
-   assert_eq!(*list.index::<u32>(1), 2);
-   assert_eq!(*list.index::<u32>(2), 3);
+    assert_eq!(list.as_slice::<u32>(), &[1,2,3]);
 
-   list.remove(0);
+    list.untyped_remove(0);
 
-   assert_eq!(*list.index::<u32>(0), 2);
-   assert_eq!(*list.index::<u32>(1), 3);
+    assert_eq!(list.as_slice::<u32>(), &[2,3]);
 
-   list.pop();
+    list.untyped_pop();
 
-   assert_eq!(*list.index::<u32>(0), 2);
-   
-   list.insert::<u32>(0, 1);
-   
-   for i in 0..list.len() {
-      println!("{:?}", list.index::<u32>(i))
-   }
+    assert_eq!(list.as_slice::<u32>(), &[2]);
+    
+    list.insert::<u32>(0, 1);
+    
+    for i in 0..list.len() {
+      println!("{:?}", list.get::<u32>(i).unwrap())
+    }
 
-   assert_eq!(*list.index::<u32>(0), 1);
-   assert_eq!(*list.index::<u32>(1), 2);
+    assert_eq!(list.as_slice::<u32>(), &[1,2]);
  }
  ```

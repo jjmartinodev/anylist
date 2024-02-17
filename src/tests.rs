@@ -48,7 +48,7 @@ fn remove_stress_anylist() {
         list.push::<usize>(0);
     }
     for _ in 0..10000 {
-        list.remove(0);
+        list.untyped_remove(0);
     }
     let end: Instant = Instant::now();
 
@@ -135,7 +135,7 @@ fn pop_stress_anylist() {
         list.push::<usize>(i);
     }
     for _ in 0..1000000 {
-        list.pop();
+        list.untyped_pop();
     }
     let end: Instant = Instant::now();
 
@@ -183,7 +183,7 @@ fn index_stress_anylist() {
         list.push::<usize>(i)
     }
     for i in 0..1000000 {
-        assert_eq!(*list.index::<usize>(i), i) 
+        assert_eq!(*list.get::<usize>(i).unwrap(), i) 
     }
     let end: Instant = Instant::now();
 
@@ -245,25 +245,21 @@ fn general() {
     list.insert::<u32>(1, 2);
     list.push::<u32>(3);
 
-    assert_eq!(*list.index::<u32>(0), 1);
-    assert_eq!(*list.index::<u32>(1), 2);
-    assert_eq!(*list.index::<u32>(2), 3);
+    assert_eq!(list.as_slice::<u32>(), &[1,2,3]);
 
-    list.remove(0);
+    list.untyped_remove(0);
 
-    assert_eq!(*list.index::<u32>(0), 2);
-    assert_eq!(*list.index::<u32>(1), 3);
+    assert_eq!(list.as_slice::<u32>(), &[2,3]);
 
-    list.pop();
+    list.untyped_pop();
 
-    assert_eq!(*list.index::<u32>(0), 2);
+    assert_eq!(list.as_slice::<u32>(), &[2]);
     
     list.insert::<u32>(0, 1);
     
     for i in 0..list.len() {
-        println!("{:?}", list.index::<u32>(i))
+        println!("{:?}", list.get::<u32>(i).unwrap())
     }
 
-    assert_eq!(*list.index::<u32>(0), 1);
-    assert_eq!(*list.index::<u32>(1), 2);
+    assert_eq!(list.as_slice::<u32>(), &[1,2]);
 }
